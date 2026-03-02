@@ -11,6 +11,8 @@ local L = require("modules.localization")
 local font = res.fontFile("Shilla_Culture.ttf", "Shilla_Culture(M)", 24)
 local countdownFont = res.fontFile("Shilla_Culture.ttf", "Shilla_Culture(M)", 88)
 local logoImage = res.image("logo.png")
+local sandbagImage = res.image("sandbag.png")
+local fatImage = res.image("fat.png")
 local DEBUG_DRAW_HITBOXES = true
 local actors = {
     coach = {
@@ -20,7 +22,7 @@ local actors = {
         enterDurationMs = 900,
     },
     sandbag = {
-        img = res.image("sandbag.png"),
+        img = sandbagImage,
         w = 136,
         h = 328,
         enterDurationMs = 700,
@@ -29,6 +31,35 @@ local actors = {
             y = 134,
             w = 40,
             h = 60,
+        },
+    },
+}
+local STAGE_CONFIGS = {
+    [1] = {
+        phase = "sandbag_intro",
+        sandbag = {
+            img = sandbagImage,
+            w = 136,
+            h = 328,
+            hitbox = { x = 48, y = 134, w = 40, h = 60 },
+        },
+    },
+    [2] = {
+        phase = "fat_intro",
+        sandbag = {
+            img = fatImage,
+            w = 280,
+            h = 327,
+            hitbox = { x = 110, y = 132, w = 62, h = 64 },
+        },
+    },
+    [3] = {
+        phase = "sandbag_intro",
+        sandbag = {
+            img = sandbagImage,
+            w = 136,
+            h = 328,
+            hitbox = { x = 48, y = 134, w = 40, h = 60 },
         },
     },
 }
@@ -65,6 +96,19 @@ local phaseActionRunner = PhaseActionRunner.new(slideManager, actors, function()
 end)
 local sandbagTarget = SandbagTarget.new(slideManager, actors.sandbag, DEBUG_DRAW_HITBOXES)
 
+local function applyStageConfig(stage)
+    local config = STAGE_CONFIGS[stage] or STAGE_CONFIGS[1]
+    local opponent = config.sandbag
+    actors.sandbag.img = opponent.img
+    actors.sandbag.w = opponent.w
+    actors.sandbag.h = opponent.h
+    actors.sandbag.hitbox.x = opponent.hitbox.x
+    actors.sandbag.hitbox.y = opponent.hitbox.y
+    actors.sandbag.hitbox.w = opponent.hitbox.w
+    actors.sandbag.hitbox.h = opponent.hitbox.h
+    return config
+end
+
 local function enterStartScene()
     scene = "start"
     startFadeTimerMs = 0
@@ -98,19 +142,29 @@ local function enterGameScene()
         HandManager.clearPersistentHandRegistry()
     end
 
+    local selectedStage = 1
+    if startMode == "stage1" then
+        selectedStage = 1
+    elseif startMode == "stage2" then
+        selectedStage = 2
+    elseif startMode == "stage3" then
+        selectedStage = 3
+    end
+    local stageConfig = applyStageConfig(selectedStage)
+
     handManager = HandManager.new()
     phaseActionRunner:bindHandManagerPhaseEvents(handManager)
     handManager:setPlayArea(w, h)
     handManager:beginHandEntryAnimation()
     if startMode == "stage1" then
         currentRunStage = 1
-        handManager:setPhase("sandbag_intro")
+        handManager:setPhase(stageConfig.phase)
     elseif startMode == "stage2" then
         currentRunStage = 2
-        handManager:setPhase("sandbag_intro")
+        handManager:setPhase(stageConfig.phase)
     elseif startMode == "stage3" then
         currentRunStage = 3
-        handManager:setPhase("sandbag_intro")
+        handManager:setPhase(stageConfig.phase)
     else
         currentRunStage = 1
         handManager:emitPhaseEnter()
