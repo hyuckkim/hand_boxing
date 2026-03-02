@@ -15,12 +15,15 @@ return {
             mouse1_confirmed = "마우스 1 확인됨",
             mouse2_confirmed = "마우스 2 확인됨",
             need_two_mice = "마우스 2개가 필요합니다",
+            stage_record_none = "기록 없음",
+            stage_record_format = "{count} HIT",
         },
         battle = {
             hits = "Hits: {count}",
             hit_text = "HIT! {name} L{level} ({side})",
             timer = "남은 시간: {sec}초",
             record_finished = "기록 종료! 총 타격: {count}",
+            record_finished_coach = "기록 종료!",
         },
     },
     combo = {

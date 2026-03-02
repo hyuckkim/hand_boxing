@@ -5,6 +5,8 @@ local StartScreen = require("modules.start_screen")
 local SlideManager = require("modules.slide_manager")
 local PhaseActionRunner = require("modules.phase_action_runner")
 local SandbagTarget = require("modules.sandbag_target")
+local StageProgression = require("modules.stage_progression")
+local L = require("modules.localization")
 
 local font = res.fontFile("Shilla_Culture.ttf", "Shilla_Culture(M)", 24)
 local countdownFont = res.fontFile("Shilla_Culture.ttf", "Shilla_Culture(M)", 88)
@@ -33,8 +35,14 @@ local actors = {
 local w, h
 local scene = "start"
 local START_FADE_DURATION_MS = 1000
+local RECORD_END_WAIT_MS = 2000
+local RECORD_END_FADE_MS = 1000
 local startFadeTimerMs = 0
 local wasBattleMode = false
+local startMode = "check"
+local currentRunStage = nil
+local recordEndState = "idle"
+local recordEndTimerMs = 0
 local handManager = HandManager.new()
 local slideManager = SlideManager.new()
 local battleFeedback = BattleFeedback.new()
@@ -61,6 +69,9 @@ local function enterStartScene()
     scene = "start"
     startFadeTimerMs = 0
     wasBattleMode = false
+    recordEndState = "idle"
+    recordEndTimerMs = 0
+    currentRunStage = nil
     slideManager:clear()
     startScreen:reset()
     sys.clip(false)
@@ -77,13 +88,33 @@ end
 local function enterGameScene()
     scene = "game"
     wasBattleMode = false
+    recordEndState = "idle"
+    recordEndTimerMs = 0
+    currentRunStage = nil
     slideManager:clear()
     battleFeedback:reset()
+
+    if startMode == "check" then
+        HandManager.clearPersistentHandRegistry()
+    end
+
     handManager = HandManager.new()
     phaseActionRunner:bindHandManagerPhaseEvents(handManager)
     handManager:setPlayArea(w, h)
     handManager:beginHandEntryAnimation()
-    handManager:emitPhaseEnter()
+    if startMode == "stage1" then
+        currentRunStage = 1
+        handManager:setPhase("sandbag_intro")
+    elseif startMode == "stage2" then
+        currentRunStage = 2
+        handManager:setPhase("sandbag_intro")
+    elseif startMode == "stage3" then
+        currentRunStage = 3
+        handManager:setPhase("sandbag_intro")
+    else
+        currentRunStage = 1
+        handManager:emitPhaseEnter()
+    end
     pauseMenu:setPaused(false)
 end
 
@@ -97,6 +128,10 @@ end
 
 function Update(dtMs)
     if scene == "start" then
+        local hasHands = HandManager.hasPersistentBothHands()
+        local unlocked = StageProgression.getUnlockedStage()
+        startScreen:setStageAvailability(hasHands and unlocked >= 1, hasHands and unlocked >= 2, hasHands and unlocked >= 3)
+        startScreen:setStageRecords(StageProgression.getRecords())
         return
     end
 
@@ -130,6 +165,29 @@ function Update(dtMs)
             battleFeedback:onHit(targetRect, hit)
         end
     end
+
+    if isBattleMode and battleFeedback:isRecordFinished() and recordEndState == "idle" then
+        if currentRunStage ~= nil then
+            StageProgression.completeStage(currentRunStage, battleFeedback:getHitCount())
+        end
+        handManager:showCoachMessage(L.t("ui.battle.record_finished_coach"))
+        recordEndState = "wait"
+        recordEndTimerMs = 0
+    end
+
+    if recordEndState == "wait" then
+        recordEndTimerMs = recordEndTimerMs + dtMs
+        if recordEndTimerMs >= RECORD_END_WAIT_MS then
+            recordEndState = "fade"
+            recordEndTimerMs = 0
+        end
+    elseif recordEndState == "fade" then
+        recordEndTimerMs = recordEndTimerMs + dtMs
+        if recordEndTimerMs >= RECORD_END_FADE_MS then
+            enterStartScene()
+            return
+        end
+    end
 end
 
 function Draw()
@@ -139,6 +197,10 @@ function Draw()
     startScreen:updateLayout(w, h)
 
     if scene == "start" or scene == "start_fade" then
+        local hasHands = HandManager.hasPersistentBothHands()
+        local unlocked = StageProgression.getUnlockedStage()
+        startScreen:setStageAvailability(hasHands and unlocked >= 1, hasHands and unlocked >= 2, hasHands and unlocked >= 3)
+        startScreen:setStageRecords(StageProgression.getRecords())
         startScreen:draw(w, h)
 
         if scene == "start_fade" then
@@ -158,11 +220,22 @@ function Draw()
     sandbagTarget:drawDebugHitbox()
     handManager:draw(font, images, countdownFont)
 
+    if recordEndState == "wait" or recordEndState == "fade" then
+        g.color(1, 0.9, 0.25)
+        g.text(countdownFont, L.t("ui.battle.record_finished_coach"), math.floor(w * 0.36), math.floor(h * 0.42))
+    end
+
     if handManager:getCurrentMode() == "battle" then
         battleFeedback:drawHud(font, w, h)
     end
 
     battleFeedback:endWorldTransform()
+
+    if recordEndState == "fade" then
+        local alpha = math.min(1, recordEndTimerMs / RECORD_END_FADE_MS)
+        g.color(0, 0, 0, alpha)
+        g.rect(0, 0, w, h, true)
+    end
 
     if pauseMenu:isPaused() then
         pauseMenu:draw(w, h)
@@ -177,7 +250,17 @@ function OnMouseDown(btn, id)
     if scene == "start" then
         local mx, my = is.mouse()
         local action = startScreen:onMouseDown(btn, id, mx, my)
-        if action == "start" then
+        if action == "start_check" then
+            startMode = "check"
+            beginStartTransition()
+        elseif action == "start_stage1" then
+            startMode = "stage1"
+            beginStartTransition()
+        elseif action == "start_stage2" then
+            startMode = "stage2"
+            beginStartTransition()
+        elseif action == "start_stage3" then
+            startMode = "stage3"
             beginStartTransition()
         end
         return
@@ -213,6 +296,13 @@ function OnKeyDown(key)
     if scene == "start" or scene == "start_fade" then
         if key == 0x1B then -- ESC
             sys.quit()
+        end
+        return
+    end
+
+    if key == 0x50 then -- P
+        if handManager:getCurrentMode() == "battle" and battleFeedback:isRecordActive() then
+            battleFeedback:forceRecordRemainingMs(1000)
         end
         return
     end

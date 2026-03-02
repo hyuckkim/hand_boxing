@@ -153,6 +153,18 @@ function BattleFeedback:isRecordFinished()
     return self.recordFinished
 end
 
+function BattleFeedback:getHitCount()
+    return self.hitCount
+end
+
+function BattleFeedback:forceRecordRemainingMs(remainingMs)
+    if self.recordDurationMs <= 0 or not self.recordActive then
+        return
+    end
+
+    self.recordRemainingMs = math.max(0, remainingMs or 0)
+end
+
 function BattleFeedback:addFloatingHitText(text, level)
     local levelScale = math.max(1, math.min(3, level or 1))
     local baseY = 112
@@ -339,11 +351,6 @@ function BattleFeedback:drawHud(font, width, height)
         local secText = string.format("%.2f", sec)
         g.color(1, 1, 1)
         g.text(font, L.t("ui.battle.timer", { sec = secText }), 480, 20)
-
-        if self.recordFinished then
-            g.color(1, 0.86, 0.5)
-            g.text(font, L.t("ui.battle.record_finished", { count = tostring(self.hitCount) }), math.floor(width * 0.32), math.floor(height * 0.1))
-        end
     end
 
     local baseX = math.floor(width * 0.43)

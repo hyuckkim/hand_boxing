@@ -3,6 +3,16 @@ local L = require("modules.localization")
 local scene = {
     sandbag_intro = {
         mode = "dialog",
+        enterActions = {
+            {
+                type = "slide",
+                object = "coach",
+                mode = "move",
+                to = { xAnchor = "center", yAnchor = "center", yOffset = -40 },
+                durationMs = 260,
+                easing = "ease_out_cubic",
+            },
+        },
         dialogues = {
             L.t("scene.sandbag_intro.line1"),
             L.t("scene.sandbag_intro.line2"),

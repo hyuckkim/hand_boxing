@@ -68,6 +68,15 @@ function HandManager.new()
     return manager
 end
 
+function HandManager.clearPersistentHandRegistry()
+    PERSISTENT_HAND_REGISTRY.leftOwnerId = nil
+    PERSISTENT_HAND_REGISTRY.rightOwnerId = nil
+end
+
+function HandManager.hasPersistentBothHands()
+    return PERSISTENT_HAND_REGISTRY.leftOwnerId ~= nil and PERSISTENT_HAND_REGISTRY.rightOwnerId ~= nil
+end
+
 function HandManager:setPhaseEventHandler(handler)
     self.phaseEventHandler = handler
 end
@@ -231,6 +240,13 @@ end
 
 function HandManager:setError(message)
     self.messageManager:setErrorMessage(message)
+end
+
+function HandManager:showCoachMessage(message)
+    self.messageManager.speaker = self.defaultSpeaker
+    self.messageManager:setMessage(message or "")
+    self.messageManager:completeCurrentMessage()
+    self.dialogueCompleteHoldMs = 0
 end
 
 function HandManager:getHandByOwnerId(id)
