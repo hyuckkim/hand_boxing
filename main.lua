@@ -43,6 +43,7 @@ local startScreen = StartScreen.new(font, logoImage, {
     buttonY = 300,
     buttonW = 260,
     buttonH = 60,
+    countdownFont = countdownFont,
 })
 local images = {
     base = res.image("1.png"),

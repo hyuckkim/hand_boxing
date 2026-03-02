@@ -7,6 +7,7 @@ function StartScreen.new(font, logoImage, options)
 
     return setmetatable({
         font = font,
+        countdownFont = options.countdownFont or font,
         logoImage = logoImage,
         buttonRect = {
             x = options.buttonX or 70,
@@ -71,7 +72,7 @@ function StartScreen:draw(width, height)
         g.image(self.logoImage, logoX, logoY, logoW, logoH)
     else
         g.color(1, 1, 1)
-        g.text(self.font, L.t("ui.start.title"), math.floor(width * 0.33), math.floor(height * 0.22))
+        g.text(self.countdownFont, L.t("ui.start.title"), math.floor(width * 0.33), math.floor(height * 0.22))
     end
 
     local mx, my = is.mouse()
@@ -97,10 +98,10 @@ function StartScreen:draw(width, height)
 
     if self.mouseConfirmCount >= 2 then
         g.color(0.72, 0.92, 0.72)
-        g.text(self.font, L.t("ui.start.mouse2_confirmed"), math.floor(width * 0.18), math.floor(height * 0.88))
+        g.text(self.font, L.t("ui.start.mouse2_confirmed"), math.floor(width * 0.48), math.floor(height * 0.82))
     else
         g.color(0.5, 0.5, 0.5)
-        g.text(self.font, "", math.floor(width * 0.18), math.floor(height * 0.88))
+        g.text(self.font, "", math.floor(width * 0.48), math.floor(height * 0.82))
     end
     g.color("#cccccc")
     g.text(self.font, L.t("ui.start.need_two_mice"), 20, height - 40)
