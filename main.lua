@@ -34,6 +34,7 @@ local w, h
 local scene = "start"
 local START_FADE_DURATION_MS = 1000
 local startFadeTimerMs = 0
+local wasBattleMode = false
 local handManager = HandManager.new()
 local slideManager = SlideManager.new()
 local battleFeedback = BattleFeedback.new()
@@ -59,6 +60,7 @@ local sandbagTarget = SandbagTarget.new(slideManager, actors.sandbag, DEBUG_DRAW
 local function enterStartScene()
     scene = "start"
     startFadeTimerMs = 0
+    wasBattleMode = false
     slideManager:clear()
     startScreen:reset()
     sys.clip(false)
@@ -74,6 +76,7 @@ end
 
 local function enterGameScene()
     scene = "game"
+    wasBattleMode = false
     slideManager:clear()
     battleFeedback:reset()
     handManager = HandManager.new()
@@ -114,7 +117,13 @@ function Update(dtMs)
 
     handManager:update(dtMs)
 
-    if handManager:getCurrentMode() == "battle" then
+    local isBattleMode = handManager:getCurrentMode() == "battle"
+    if isBattleMode and not wasBattleMode then
+        battleFeedback:startRecordMode(30000)
+    end
+    wasBattleMode = isBattleMode
+
+    if isBattleMode and battleFeedback:isRecordActive() then
         local targetRect = sandbagTarget:getWorldRect()
         local hit = handManager:tryConsumeBattlePunchHit(targetRect)
         if hit then

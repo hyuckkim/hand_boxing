@@ -19,6 +19,8 @@ return {
         battle = {
             hits = "Hits: {count}",
             hit_text = "HIT! {name} L{level} ({side})",
+            timer = "남은 시간: {sec}초",
+            record_finished = "기록 종료! 총 타격: {count}",
         },
     },
     combo = {
