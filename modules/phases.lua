@@ -52,7 +52,7 @@ local phases = {
 }
 
 for name, config in pairs(sandbagScene) do
-    if name ~= "stageConfigs" then
+    if type(config) == "table" and config.mode ~= nil then
         phases[name] = config
     end
 end

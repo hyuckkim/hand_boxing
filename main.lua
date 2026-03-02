@@ -13,14 +13,17 @@ local font = res.fontFile("Shilla_Culture.ttf", "Shilla_Culture(M)", 24)
 local countdownFont = res.fontFile("Shilla_Culture.ttf", "Shilla_Culture(M)", 88)
 local logoImage = res.image("logo.png")
 local DEBUG_DRAW_HITBOXES = true
-local STAGE_CONFIGS = NewOpponentSandbag.stageConfigs or {}
-local defaultStageConfig = STAGE_CONFIGS[1] and STAGE_CONFIGS[1].sandbag or {
+local getStageSetup = NewOpponentSandbag.getStageSetup or function()
+    return nil
+end
+local defaultSetup = getStageSetup(1) or {}
+local defaultStageConfig = defaultSetup.sandbag or {
     img = res.image("sandbag.png"),
     w = 136,
     h = 328,
     hitbox = { x = 48, y = 134, w = 40, h = 60 },
 }
-local defaultTophatConfig = STAGE_CONFIGS[3] and STAGE_CONFIGS[3].tophat or {
+local defaultTophatConfig = (getStageSetup(3) or {}).tophat or {
     img = -1,
     w = 0,
     h = 0,
@@ -125,7 +128,10 @@ local function configureStageRecordCallbacks()
 end
 
 local function applyStageConfig(stage)
-    local config = STAGE_CONFIGS[stage] or STAGE_CONFIGS[1]
+    local config = getStageSetup(stage) or getStageSetup(1) or {
+        phase = "sandbag_intro",
+        sandbag = defaultStageConfig,
+    }
     local opponent = config.sandbag
     local tophat = config.tophat
     actors.sandbag.img = opponent.img
