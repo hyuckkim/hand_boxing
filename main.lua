@@ -10,8 +10,8 @@ local StageProgression = require("modules.stage_progression")
 local L = require("modules.localization")
 local NewOpponentSandbag = require("modules.scenes.new_opponent_sandbag")
 
-local font = res.fontFile("Shilla_Culture.ttf", "Shilla_Culture(M)", 24)
-local countdownFont = res.fontFile("Shilla_Culture.ttf", "Shilla_Culture(M)", 88)
+local font = res.fontFile("솔뫼 김대건 Medium.ttf", "솔뫼 김대건 Medium", 24)
+local countdownFont = res.fontFile("솔뫼 김대건 Medium.ttf", "솔뫼 김대건 Medium", 88)
 local logoImage = res.image("logo.png")
 local DEBUG_DRAW_HITBOXES = false
 local getStageSetup = NewOpponentSandbag.getStageSetup or function()
