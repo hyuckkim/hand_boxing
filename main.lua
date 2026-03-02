@@ -9,6 +9,11 @@ local countdownFont = res.fontFile("Shilla_Culture.ttf", "Shilla_Culture(M)", 88
 local logoImage = res.image("logo.png")
 local DEBUG_DRAW_HITBOXES = true
 local DUST_DISPERSAL_MULTIPLIER = 5
+local SCREEN_SHAKE_DURATION_MS_BASE = 90
+local SCREEN_SHAKE_DURATION_MS_STEP = 25
+local SCREEN_SHAKE_INTENSITY_BASE = 3
+local SCREEN_SHAKE_INTENSITY_STEP = 2
+local SCREEN_SHAKE_MAX_OFFSET = 16
 local actors = {
     coach = {
         img = res.image("coach.png"),
@@ -36,6 +41,10 @@ local startFadeTimerMs = 0
 local battleHitCount = 0
 local battleHitText = ""
 local battleHitTextTimerMs = 0
+local screenShakeTimerMs = 0
+local screenShakeIntensity = 0
+local screenShakeX = 0
+local screenShakeY = 0
 local handManager = HandManager.new()
 local slideManager = SlideManager.new()
 local particleSystem = ParticleSystem.new({
@@ -124,6 +133,37 @@ local function spawnSandbagDust(targetRect, hit)
         color = { r = 0.74, g = 0.70, b = 0.63 },
         colorJitter = 0.09,
     })
+end
+
+local function addScreenShake(level)
+    local power = math.max(1, math.min(3, level or 1))
+    local duration = SCREEN_SHAKE_DURATION_MS_BASE + (power - 1) * SCREEN_SHAKE_DURATION_MS_STEP
+    local intensity = SCREEN_SHAKE_INTENSITY_BASE + (power - 1) * SCREEN_SHAKE_INTENSITY_STEP
+
+    screenShakeTimerMs = math.max(screenShakeTimerMs, duration)
+    screenShakeIntensity = math.min(SCREEN_SHAKE_MAX_OFFSET, screenShakeIntensity + intensity)
+end
+
+local function updateScreenShake(dtMs)
+    if screenShakeTimerMs <= 0 then
+        screenShakeTimerMs = 0
+        screenShakeIntensity = 0
+        screenShakeX = 0
+        screenShakeY = 0
+        return
+    end
+
+    screenShakeTimerMs = math.max(0, screenShakeTimerMs - dtMs)
+    local decay = math.max(0, 1 - (dtMs / 120))
+    screenShakeIntensity = screenShakeIntensity * decay
+
+    if screenShakeTimerMs > 0 and screenShakeIntensity > 0.1 then
+        screenShakeX = (math.random() * 2 - 1) * screenShakeIntensity
+        screenShakeY = (math.random() * 2 - 1) * screenShakeIntensity * 0.8
+    else
+        screenShakeX = 0
+        screenShakeY = 0
+    end
 end
 
 local function ensureActorObject(name)
@@ -314,6 +354,10 @@ local function enterGameScene()
     battleHitCount = 0
     battleHitText = ""
     battleHitTextTimerMs = 0
+    screenShakeTimerMs = 0
+    screenShakeIntensity = 0
+    screenShakeX = 0
+    screenShakeY = 0
     particleSystem:clear()
     handManager = HandManager.new()
     bindHandManagerPhaseEvents(handManager)
@@ -352,6 +396,7 @@ function Update(dtMs)
     particleSystem:update(dtMs)
 
     handManager:update(dtMs)
+    updateScreenShake(dtMs)
 
     if battleHitTextTimerMs > 0 then
         battleHitTextTimerMs = math.max(0, battleHitTextTimerMs - dtMs)
@@ -368,6 +413,7 @@ function Update(dtMs)
             battleHitText = "HIT! L" .. tostring(hit.level) .. " (" .. hit.side .. ")"
             battleHitTextTimerMs = 400
             spawnSandbagDust(targetRect, hit)
+            addScreenShake(hit.level)
         end
     end
 end
@@ -392,6 +438,9 @@ function Draw()
     g.color(0, 0, 0)
     g.rect(0, 0, w, h)
 
+    g.push()
+    g.translate(screenShakeX, screenShakeY)
+
     particleSystem:draw()
     slideManager:draw()
     drawDebugHitboxes()
@@ -405,6 +454,8 @@ function Draw()
             g.text(font, battleHitText, math.floor(w * 0.43), math.floor(h * 0.16))
         end
     end
+
+    g.pop()
 
     if pauseMenu:isPaused() then
         pauseMenu:draw(w, h)
