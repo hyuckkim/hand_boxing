@@ -66,6 +66,27 @@ local images = {
     both = res.image("4.png"),
 }
 
+local function safeAtan2(y, x)
+    if x == 0 then
+        if y > 0 then
+            return math.pi * 0.5
+        elseif y < 0 then
+            return -math.pi * 0.5
+        end
+        return 0
+    end
+
+    local angle = math.atan(y / x)
+    if x < 0 then
+        if y >= 0 then
+            angle = angle + math.pi
+        else
+            angle = angle - math.pi
+        end
+    end
+    return angle
+end
+
 local function drawDebugHitboxes()
     if not DEBUG_DRAW_HITBOXES then
         return
@@ -113,12 +134,16 @@ local function spawnSandbagDust(targetRect, hit)
 
     local count = 9 + power * 4
     local speedScale = DUST_DISPERSAL_MULTIPLIER
+    local angleDeg = -90
+    if hit and hit.dirX and hit.dirY then
+        angleDeg = math.deg(safeAtan2(hit.dirY, hit.dirX))
+    end
 
     particleSystem:emitBurst({
         x = targetRect.x + targetRect.w * 0.5 + sideBias,
         y = targetRect.y + targetRect.h * 0.45,
         count = count,
-        angleDeg = -90,
+        angleDeg = angleDeg,
         spreadDeg = 140,
         minSpeed = (90 + power * 24) * speedScale,
         maxSpeed = (190 + power * 35) * speedScale,
@@ -410,7 +435,7 @@ function Update(dtMs)
         local hit = handManager:tryConsumeBattlePunchHit(targetRect)
         if hit then
             battleHitCount = battleHitCount + 1
-            battleHitText = "HIT! L" .. tostring(hit.level) .. " (" .. hit.side .. ")"
+            battleHitText = "HIT! " .. tostring(hit.techniqueName or "스트레이트") .. " L" .. tostring(hit.level) .. " (" .. hit.side .. ")"
             battleHitTextTimerMs = 400
             spawnSandbagDust(targetRect, hit)
             addScreenShake(hit.level)

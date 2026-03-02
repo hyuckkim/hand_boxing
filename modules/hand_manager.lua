@@ -362,9 +362,14 @@ function HandManager:tryConsumeBattlePunchHit(targetRect)
             if overlap then
                 hand:consumePunchHit()
                 hand:applyImpactFeedback(hand:getPunchLevel())
+                local technique = hand:getLastTechnique()
                 return {
                     side = hand.side,
                     level = hand:getPunchLevel(),
+                    techniqueId = technique and technique.id or "straight",
+                    techniqueName = technique and technique.name or "스트레이트",
+                    dirX = technique and technique.dirX or 1,
+                    dirY = technique and technique.dirY or 0,
                 }
             end
         end

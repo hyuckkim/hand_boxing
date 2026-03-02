@@ -20,6 +20,8 @@ local IMPACT_RECOIL_X_STEP = 55
 local IMPACT_RECOIL_Y_BASE = 45
 local IMPACT_RECOIL_DAMPING_PER_SEC = 8
 local IMPACT_INPUT_SCALE_DURING_STOP = 0.08
+local TRAJECTORY_WINDOW_MS = 180
+local TRAJECTORY_DECAY_PER_SEC = 6
 local DEBUG_DRAW_HIT_RECT = true
 
 local DEFAULT_HIT_RECT = {
@@ -35,6 +37,88 @@ local function clamp(value, minValue, maxValue)
         return maxValue
     end
     return value
+end
+
+local function classifyTechnique(dx, dy)
+    local absX = math.abs(dx)
+    local absY = math.abs(dy)
+
+    if absX < 2 and absY < 2 then
+        return {
+            id = "straight",
+            name = "스트레이트",
+            dirX = 1,
+            dirY = 0,
+        }
+    end
+
+    if absX > absY * 1.35 then
+        if dx >= 0 then
+            return {
+                id = "straight",
+                name = "스트레이트",
+                dirX = 1,
+                dirY = 0,
+            }
+        end
+        return {
+            id = "backfist",
+            name = "백피스트",
+            dirX = -1,
+            dirY = 0,
+        }
+    end
+
+    if absY > absX * 1.35 then
+        if dy <= 0 then
+            return {
+                id = "uppercut",
+                name = "어퍼컷",
+                dirX = 0,
+                dirY = -1,
+            }
+        end
+        return {
+            id = "hammer",
+            name = "해머",
+            dirX = 0,
+            dirY = 1,
+        }
+    end
+
+    if dx >= 0 and dy <= 0 then
+        return {
+            id = "rising_hook",
+            name = "라이징 훅",
+            dirX = 0.7,
+            dirY = -0.7,
+        }
+    end
+
+    if dx >= 0 and dy > 0 then
+        return {
+            id = "down_hook",
+            name = "다운 훅",
+            dirX = 0.7,
+            dirY = 0.7,
+        }
+    end
+
+    if dx < 0 and dy <= 0 then
+        return {
+            id = "pull_upper",
+            name = "풀 어퍼",
+            dirX = -0.7,
+            dirY = -0.7,
+        }
+    end
+
+    return {
+        id = "pull_smash",
+        name = "풀 스매시",
+        dirX = -0.7,
+        dirY = 0.7,
+    }
 end
 
 function Hand.new(side)
@@ -53,6 +137,15 @@ function Hand.new(side)
         impactStopMs = 0,
         recoilVx = 0,
         recoilVy = 0,
+        trajectoryDx = 0,
+        trajectoryDy = 0,
+        trajectoryLifeMs = 0,
+        lastTechnique = {
+            id = "straight",
+            name = "스트레이트",
+            dirX = 1,
+            dirY = 0,
+        },
         hitRect = {
             x = baseRect.x,
             y = baseRect.y,
@@ -98,6 +191,18 @@ function Hand:update(dtMs, bounds)
         end
     end
 
+    if self.trajectoryLifeMs > 0 then
+        self.trajectoryLifeMs = math.max(0, self.trajectoryLifeMs - dtMs)
+        local decay = math.max(0, 1 - TRAJECTORY_DECAY_PER_SEC * dt)
+        self.trajectoryDx = self.trajectoryDx * decay
+        self.trajectoryDy = self.trajectoryDy * decay
+
+        if self.trajectoryLifeMs == 0 then
+            self.trajectoryDx = 0
+            self.trajectoryDy = 0
+        end
+    end
+
     if self.impactStopMs > 0 then
         self.impactStopMs = math.max(0, self.impactStopMs - dtMs)
     end
@@ -136,11 +241,19 @@ function Hand:getLastPunchLevel()
     return self.lastPunchLevel
 end
 
+function Hand:getLastTechnique()
+    return self.lastTechnique
+end
+
 function Hand:move(dx, dy, bounds, ownerId)
     if self.impactStopMs > 0 then
         dx = dx * IMPACT_INPUT_SCALE_DURING_STOP
         dy = dy * IMPACT_INPUT_SCALE_DURING_STOP
     end
+
+    self.trajectoryDx = self.trajectoryDx + dx
+    self.trajectoryDy = self.trajectoryDy + dy
+    self.trajectoryLifeMs = TRAJECTORY_WINDOW_MS
 
     local speed = math.sqrt(dx * dx + dy * dy)
     local level = getPunchLevelFromSpeed(speed)
@@ -149,8 +262,16 @@ function Hand:move(dx, dy, bounds, ownerId)
             self.punchLevel = level
             self.lastPunchLevel = level
             self.punchConsumed = false
+            local directionalDx = self.trajectoryDx
+            if self.side == "right" then
+                directionalDx = -directionalDx
+            end
+            self.lastTechnique = classifyTechnique(directionalDx, self.trajectoryDy)
+            self.trajectoryDx = 0
+            self.trajectoryDy = 0
+            self.trajectoryLifeMs = 0
             self.punchTimerMs = PUNCH_DURATION_BY_LEVEL[level]
-            print("Punch L" .. level .. " detected for " .. self.side .. " hand (owner=" .. tostring(ownerId) .. ") with speed " .. speed)
+            print("Punch L" .. level .. " detected for " .. self.side .. " hand (owner=" .. tostring(ownerId) .. ") with speed " .. speed .. " / technique=" .. self.lastTechnique.id)
         elseif level > self.punchLevel then
             self.punchLevel = level
             self.lastPunchLevel = level
