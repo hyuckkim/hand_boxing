@@ -16,6 +16,18 @@ local DUAL_HIT_COMBO_WINDOW_MS = 180
 local FLOATING_TEXT_LIFE_MS = 650
 local FLOATING_TEXT_RISE_PX = 46
 local FLOATING_TEXT_MAX_COUNT = 10
+local HIT_SFX_COUNT = 10
+
+local function loadHitSfxIds()
+    local ids = {}
+    for i = 1, HIT_SFX_COUNT do
+        local id = res.sound("sfx/" .. tostring(i) .. ".wav")
+        if id and id >= 0 then
+            ids[#ids + 1] = id
+        end
+    end
+    return ids
+end
 
 local function safeAtan2(y, x)
     if x == 0 then
@@ -65,6 +77,10 @@ end
 function BattleFeedback.new()
     return setmetatable({
         hitCount = 0,
+        recordDurationMs = 0,
+        recordRemainingMs = 0,
+        recordActive = false,
+        recordFinished = false,
         floatingTexts = {},
         elapsedMs = 0,
         lastHitSide = nil,
@@ -74,6 +90,7 @@ function BattleFeedback.new()
         screenShakeIntensity = 0,
         screenShakeX = 0,
         screenShakeY = 0,
+        hitSfxIds = loadHitSfxIds(),
         particleSystem = ParticleSystem.new({
             maxParticles = 800,
             gravity = 620,
@@ -82,8 +99,32 @@ function BattleFeedback.new()
     }, BattleFeedback)
 end
 
+function BattleFeedback:playHitSfx(hit)
+    if #self.hitSfxIds == 0 then
+        return
+    end
+
+    local index = math.random(1, #self.hitSfxIds)
+    local soundId = self.hitSfxIds[index]
+    local level = math.max(1, math.min(3, hit and hit.level or 1))
+    local volume = math.min(1, 0.55 + level * 0.12)
+    local pan = 0
+
+    if hit and hit.side == "left" then
+        pan = -0.18
+    elseif hit and hit.side == "right" then
+        pan = 0.18
+    end
+
+    snd.play(soundId, volume, pan)
+end
+
 function BattleFeedback:reset()
     self.hitCount = 0
+    self.recordDurationMs = 0
+    self.recordRemainingMs = 0
+    self.recordActive = false
+    self.recordFinished = false
     self.floatingTexts = {}
     self.elapsedMs = 0
     self.lastHitSide = nil
@@ -94,6 +135,22 @@ function BattleFeedback:reset()
     self.screenShakeX = 0
     self.screenShakeY = 0
     self.particleSystem:clear()
+end
+
+function BattleFeedback:startRecordMode(durationMs)
+    local duration = math.max(1000, durationMs or 30000)
+    self.recordDurationMs = duration
+    self.recordRemainingMs = duration
+    self.recordActive = true
+    self.recordFinished = false
+end
+
+function BattleFeedback:isRecordActive()
+    return self.recordActive
+end
+
+function BattleFeedback:isRecordFinished()
+    return self.recordFinished
 end
 
 function BattleFeedback:addFloatingHitText(text, level)
@@ -215,6 +272,10 @@ function BattleFeedback:spawnSandbagDust(targetRect, hit)
 end
 
 function BattleFeedback:onHit(targetRect, hit)
+    if self.recordDurationMs > 0 and not self.recordActive then
+        return
+    end
+
     self.hitCount = self.hitCount + 1
     local displayName = self:getTechniqueDisplayName(hit)
     self:addFloatingHitText(L.t("ui.battle.hit_text", {
@@ -222,6 +283,8 @@ function BattleFeedback:onHit(targetRect, hit)
         level = tostring(hit.level),
         side = tostring(hit.side),
     }), hit.level)
+
+    self:playHitSfx(hit)
 
     self.lastHitSide = hit.side
     self.lastHitLevel = hit.level or 1
@@ -233,6 +296,15 @@ end
 
 function BattleFeedback:update(dtMs)
     self.elapsedMs = self.elapsedMs + dtMs
+
+    if self.recordActive then
+        self.recordRemainingMs = math.max(0, self.recordRemainingMs - dtMs)
+        if self.recordRemainingMs == 0 then
+            self.recordActive = false
+            self.recordFinished = true
+        end
+    end
+
     self.particleSystem:update(dtMs)
     self:updateScreenShake(dtMs)
 
@@ -261,6 +333,18 @@ end
 function BattleFeedback:drawHud(font, width, height)
     g.color(1, 1, 1)
     g.text(font, L.t("ui.battle.hits", { count = tostring(self.hitCount) }), 20, height - 44)
+
+    if self.recordDurationMs > 0 then
+        local sec = math.max(0, self.recordRemainingMs / 1000)
+        local secText = string.format("%.2f", sec)
+        g.color(1, 1, 1)
+        g.text(font, L.t("ui.battle.timer", { sec = secText }), 480, 20)
+
+        if self.recordFinished then
+            g.color(1, 0.86, 0.5)
+            g.text(font, L.t("ui.battle.record_finished", { count = tostring(self.hitCount) }), math.floor(width * 0.32), math.floor(height * 0.1))
+        end
+    end
 
     local baseX = math.floor(width * 0.43)
     for _, item in ipairs(self.floatingTexts) do
