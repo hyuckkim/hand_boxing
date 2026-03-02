@@ -7,60 +7,56 @@ local PhaseActionRunner = require("modules.phase_action_runner")
 local SandbagTarget = require("modules.sandbag_target")
 local StageProgression = require("modules.stage_progression")
 local L = require("modules.localization")
+local NewOpponentSandbag = require("modules.scenes.new_opponent_sandbag")
 
 local font = res.fontFile("Shilla_Culture.ttf", "Shilla_Culture(M)", 24)
 local countdownFont = res.fontFile("Shilla_Culture.ttf", "Shilla_Culture(M)", 88)
 local logoImage = res.image("logo.png")
-local sandbagImage = res.image("sandbag.png")
-local fatImage = res.image("fat.png")
 local DEBUG_DRAW_HITBOXES = true
+local STAGE_CONFIGS = NewOpponentSandbag.stageConfigs or {}
+local defaultStageConfig = STAGE_CONFIGS[1] and STAGE_CONFIGS[1].sandbag or {
+    img = res.image("sandbag.png"),
+    w = 136,
+    h = 328,
+    hitbox = { x = 48, y = 134, w = 40, h = 60 },
+}
+local defaultTophatConfig = STAGE_CONFIGS[3] and STAGE_CONFIGS[3].tophat or {
+    img = -1,
+    w = 0,
+    h = 0,
+}
 local actors = {
     coach = {
         img = res.image("coach.png"),
         w = 163,
         h = 328,
         enterDurationMs = 900,
+        zIndex = 20,
     },
     sandbag = {
-        img = sandbagImage,
-        w = 136,
-        h = 328,
+        img = defaultStageConfig.img,
+        w = defaultStageConfig.w,
+        h = defaultStageConfig.h,
         enterDurationMs = 700,
+        zIndex = 10,
         hitbox = {
-            x = 48,
-            y = 134,
-            w = 40,
-            h = 60,
+            x = defaultStageConfig.hitbox.x,
+            y = defaultStageConfig.hitbox.y,
+            w = defaultStageConfig.hitbox.w,
+            h = defaultStageConfig.hitbox.h,
         },
     },
-}
-local STAGE_CONFIGS = {
-    [1] = {
-        phase = "sandbag_intro",
-        sandbag = {
-            img = sandbagImage,
-            w = 136,
-            h = 328,
-            hitbox = { x = 48, y = 134, w = 40, h = 60 },
-        },
-    },
-    [2] = {
-        phase = "fat_intro",
-        sandbag = {
-            img = fatImage,
-            w = 280,
-            h = 327,
-            hitbox = { x = 110, y = 132, w = 62, h = 64 },
-        },
-    },
-    [3] = {
-        phase = "sandbag_intro",
-        sandbag = {
-            img = sandbagImage,
-            w = 136,
-            h = 328,
-            hitbox = { x = 48, y = 134, w = 40, h = 60 },
-        },
+    tophat = {
+        img = defaultTophatConfig.img,
+        w = defaultTophatConfig.w,
+        h = defaultTophatConfig.h,
+        enterDurationMs = 240,
+        zIndex = 30,
+        offsetX = defaultTophatConfig.offsetX or 0,
+        offsetY = defaultTophatConfig.offsetY or 0,
+        flyInOffsetX = defaultTophatConfig.flyInOffsetX or 0,
+        flyInOffsetY = defaultTophatConfig.flyInOffsetY or -120,
+        flyInDurationMs = defaultTophatConfig.flyInDurationMs or 240,
     },
 }
 local w, h
@@ -96,9 +92,42 @@ local phaseActionRunner = PhaseActionRunner.new(slideManager, actors, function()
 end)
 local sandbagTarget = SandbagTarget.new(slideManager, actors.sandbag, DEBUG_DRAW_HITBOXES)
 
+local function configureStageRecordCallbacks()
+    local phaseConfig = handManager:getPhaseConfig()
+    local handlers = phaseConfig and phaseConfig.recordTimeCueHandlers or nil
+    if type(handlers) ~= "table" then
+        battleFeedback:setRecordTimeCueCallbacks(nil)
+        return
+    end
+
+    local callbacks = {}
+    for cueMs, handler in pairs(handlers) do
+        if type(handler) == "function" then
+            callbacks[cueMs] = function(context)
+                return handler({
+                    cueMs = context and context.cueMs or cueMs,
+                    remainingMs = context and context.remainingMs or 0,
+                    elapsedMs = context and context.elapsedMs or 0,
+                    hitCount = context and context.hitCount or 0,
+                    handManager = handManager,
+                    battleFeedback = battleFeedback,
+                    slideManager = slideManager,
+                    actors = actors,
+                    stage = currentRunStage,
+                    playWidth = w,
+                    playHeight = h,
+                })
+            end
+        end
+    end
+
+    battleFeedback:setRecordTimeCueCallbacks(callbacks)
+end
+
 local function applyStageConfig(stage)
     local config = STAGE_CONFIGS[stage] or STAGE_CONFIGS[1]
     local opponent = config.sandbag
+    local tophat = config.tophat
     actors.sandbag.img = opponent.img
     actors.sandbag.w = opponent.w
     actors.sandbag.h = opponent.h
@@ -106,6 +135,27 @@ local function applyStageConfig(stage)
     actors.sandbag.hitbox.y = opponent.hitbox.y
     actors.sandbag.hitbox.w = opponent.hitbox.w
     actors.sandbag.hitbox.h = opponent.hitbox.h
+
+    if tophat then
+        actors.tophat.img = tophat.img or -1
+        actors.tophat.w = tophat.w or 0
+        actors.tophat.h = tophat.h or 0
+        actors.tophat.offsetX = tophat.offsetX or 0
+        actors.tophat.offsetY = tophat.offsetY or 0
+        actors.tophat.flyInOffsetX = tophat.flyInOffsetX or 0
+        actors.tophat.flyInOffsetY = tophat.flyInOffsetY or -120
+        actors.tophat.flyInDurationMs = tophat.flyInDurationMs or 240
+    else
+        actors.tophat.img = -1
+        actors.tophat.w = 0
+        actors.tophat.h = 0
+        actors.tophat.offsetX = 0
+        actors.tophat.offsetY = 0
+        actors.tophat.flyInOffsetX = 0
+        actors.tophat.flyInOffsetY = -120
+        actors.tophat.flyInDurationMs = 240
+    end
+
     return config
 end
 
@@ -151,6 +201,7 @@ local function enterGameScene()
         selectedStage = 3
     end
     local stageConfig = applyStageConfig(selectedStage)
+    configureStageRecordCallbacks()
 
     handManager = HandManager.new()
     phaseActionRunner:bindHandManagerPhaseEvents(handManager)
@@ -169,11 +220,13 @@ local function enterGameScene()
         currentRunStage = 1
         handManager:emitPhaseEnter()
     end
+    configureStageRecordCallbacks()
     pauseMenu:setPaused(false)
 end
 
 function Init()
     w, h = is.size()
+    StageProgression.load()
     handManager:setPlayArea(w, h)
     pauseMenu:updateLayout(w, h)
     startScreen:updateLayout(w, h)
@@ -183,9 +236,13 @@ end
 function Update(dtMs)
     if scene == "start" then
         local hasHands = HandManager.hasPersistentBothHands()
-        local unlocked = StageProgression.getUnlockedStage()
-        startScreen:setStageAvailability(hasHands and unlocked >= 1, hasHands and unlocked >= 2, hasHands and unlocked >= 3)
-        startScreen:setStageRecords(StageProgression.getRecords())
+        local records = StageProgression.getRecords()
+        startScreen:setStageAvailability(
+            hasHands,
+            hasHands and records[1] ~= nil,
+            hasHands and records[2] ~= nil
+        )
+        startScreen:setStageRecords(records)
         return
     end
 
@@ -252,9 +309,13 @@ function Draw()
 
     if scene == "start" or scene == "start_fade" then
         local hasHands = HandManager.hasPersistentBothHands()
-        local unlocked = StageProgression.getUnlockedStage()
-        startScreen:setStageAvailability(hasHands and unlocked >= 1, hasHands and unlocked >= 2, hasHands and unlocked >= 3)
-        startScreen:setStageRecords(StageProgression.getRecords())
+        local records = StageProgression.getRecords()
+        startScreen:setStageAvailability(
+            hasHands,
+            hasHands and records[1] ~= nil,
+            hasHands and records[2] ~= nil
+        )
+        startScreen:setStageRecords(records)
         startScreen:draw(w, h)
 
         if scene == "start_fade" then

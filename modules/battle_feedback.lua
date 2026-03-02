@@ -91,6 +91,8 @@ function BattleFeedback.new()
         screenShakeX = 0,
         screenShakeY = 0,
         hitSfxIds = loadHitSfxIds(),
+        recordTimeCueCallbacks = {},
+        firedRecordTimeCues = {},
         particleSystem = ParticleSystem.new({
             maxParticles = 800,
             gravity = 620,
@@ -134,6 +136,8 @@ function BattleFeedback:reset()
     self.screenShakeIntensity = 0
     self.screenShakeX = 0
     self.screenShakeY = 0
+    self.recordTimeCueCallbacks = {}
+    self.firedRecordTimeCues = {}
     self.particleSystem:clear()
 end
 
@@ -143,6 +147,7 @@ function BattleFeedback:startRecordMode(durationMs)
     self.recordRemainingMs = duration
     self.recordActive = true
     self.recordFinished = false
+    self.firedRecordTimeCues = {}
 end
 
 function BattleFeedback:isRecordActive()
@@ -163,6 +168,40 @@ function BattleFeedback:forceRecordRemainingMs(remainingMs)
     end
 
     self.recordRemainingMs = math.max(0, remainingMs or 0)
+end
+
+function BattleFeedback:setRecordTimeCueCallbacks(callbacksByRemainingMs)
+    self.recordTimeCueCallbacks = {}
+    self.firedRecordTimeCues = {}
+
+    if type(callbacksByRemainingMs) ~= "table" then
+        return
+    end
+
+    for cueMs, callback in pairs(callbacksByRemainingMs) do
+        local numericCue = tonumber(cueMs)
+        if numericCue and numericCue >= 0 and type(callback) == "function" then
+            self.recordTimeCueCallbacks[math.floor(numericCue)] = callback
+        end
+    end
+end
+
+function BattleFeedback:triggerRecordTimeCues(previousRemainingMs, currentRemainingMs)
+    if type(self.recordTimeCueCallbacks) ~= "table" then
+        return
+    end
+
+    for cueMs, callback in pairs(self.recordTimeCueCallbacks) do
+        if previousRemainingMs > cueMs and currentRemainingMs <= cueMs and not self.firedRecordTimeCues[cueMs] then
+            self.firedRecordTimeCues[cueMs] = true
+            pcall(callback, {
+                cueMs = cueMs,
+                remainingMs = currentRemainingMs,
+                elapsedMs = self.elapsedMs,
+                hitCount = self.hitCount,
+            })
+        end
+    end
 end
 
 function BattleFeedback:addFloatingHitText(text, level)
@@ -310,7 +349,9 @@ function BattleFeedback:update(dtMs)
     self.elapsedMs = self.elapsedMs + dtMs
 
     if self.recordActive then
+        local previousRemainingMs = self.recordRemainingMs
         self.recordRemainingMs = math.max(0, self.recordRemainingMs - dtMs)
+        self:triggerRecordTimeCues(previousRemainingMs, self.recordRemainingMs)
         if self.recordRemainingMs == 0 then
             self.recordActive = false
             self.recordFinished = true

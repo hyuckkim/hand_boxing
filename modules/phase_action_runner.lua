@@ -26,6 +26,7 @@ function PhaseActionRunner:ensureActorObject(name)
             height = actor.h,
             x = defaultX,
             y = defaultY,
+            zIndex = actor.zIndex,
             visible = false,
         })
         objectState = self.slideManager:getObjectState(name)
@@ -34,6 +35,7 @@ function PhaseActionRunner:ensureActorObject(name)
             imageId = actor.img,
             width = actor.w,
             height = actor.h,
+            zIndex = actor.zIndex,
         })
     end
 

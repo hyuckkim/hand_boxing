@@ -252,6 +252,9 @@ function is.fpsMode() end
 ---@return boolean isFocused
 function is.focus() end
 
+---config.ini의 설정을 테이블로 가져옵니다.
+---@return table config 설정 테이블
+function is.config() end
 
 -----------------------------------------------------------
 -- 시스템 제어 모듈 (sys) - BindToLuaSys
@@ -324,6 +327,17 @@ function res.fontFile(path, family, size) end
 ---@param path string 사운드 파일 경로
 ---@return integer id 리소스 ID (로드 실패 시 -1)
 function res.sound(path) end
+
+---Json 파일을 로드하고 Lua 테이블로 반환합니다.
+---@param path string Json 파일 경로
+---@return table data Lua 테이블 (로드 실패 시 nil)
+function res.loadjson(path) end
+
+---테이블을 Json 파일로 저장합니다.
+---@param path string 저장할 Json 파일 경로
+---@param data table 저장할 Lua 테이블
+---@return boolean success 저장 성공 여부
+function res.savejson(path, data) end
 
 ---@meta
 

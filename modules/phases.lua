@@ -52,7 +52,9 @@ local phases = {
 }
 
 for name, config in pairs(sandbagScene) do
-    phases[name] = config
+    if name ~= "stageConfigs" then
+        phases[name] = config
+    end
 end
 
 return phases

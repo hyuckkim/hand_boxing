@@ -35,6 +35,7 @@ function SlideManager:registerOrUpdate(name, config)
             width = 0,
             height = 0,
             imageId = -1,
+            zIndex = 0,
         }
         self.objects[name] = object
     end
@@ -44,6 +45,9 @@ function SlideManager:registerOrUpdate(name, config)
     object.height = config.height or object.height
     object.x = config.x or object.x
     object.y = config.y or object.y
+    if config.zIndex ~= nil then
+        object.zIndex = config.zIndex
+    end
 
     if config.visible ~= nil then
         object.visible = config.visible
@@ -119,7 +123,19 @@ function SlideManager:update(dtMs)
 end
 
 function SlideManager:draw()
+    local drawList = {}
     for _, object in pairs(self.objects) do
+        drawList[#drawList + 1] = object
+    end
+
+    table.sort(drawList, function(a, b)
+        if a.zIndex == b.zIndex then
+            return tostring(a.name) < tostring(b.name)
+        end
+        return (a.zIndex or 0) < (b.zIndex or 0)
+    end)
+
+    for _, object in ipairs(drawList) do
         if object.visible and object.imageId and object.imageId >= 0 then
             g.color(1, 1, 1)
             g.image(object.imageId, object.x, object.y, object.width, object.height)
