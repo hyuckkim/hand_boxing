@@ -58,6 +58,7 @@ local sandbagTarget = SandbagTarget.new(slideManager, actors.sandbag, DEBUG_DRAW
 local function enterStartScene()
     scene = "start"
     startFadeTimerMs = 0
+    slideManager:clear()
     startScreen:reset()
     sys.clip(false)
     sys.showCursor(true)
@@ -72,6 +73,7 @@ end
 
 local function enterGameScene()
     scene = "game"
+    slideManager:clear()
     battleFeedback:reset()
     handManager = HandManager.new()
     phaseActionRunner:bindHandManagerPhaseEvents(handManager)

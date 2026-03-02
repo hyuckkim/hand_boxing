@@ -19,6 +19,10 @@ function SlideManager.new()
     }, SlideManager)
 end
 
+function SlideManager:clear()
+    self.objects = {}
+end
+
 function SlideManager:registerOrUpdate(name, config)
     local object = self.objects[name]
     if not object then
