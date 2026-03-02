@@ -23,7 +23,7 @@ local IMPACT_RECOIL_DAMPING_PER_SEC = 8
 local IMPACT_INPUT_SCALE_DURING_STOP = 0.08
 local TRAJECTORY_WINDOW_MS = 180
 local TRAJECTORY_DECAY_PER_SEC = 6
-local DEBUG_DRAW_HIT_RECT = true
+local DEBUG_DRAW_HIT_RECT = false
 
 local DEFAULT_HIT_RECT = {
     left = { x = 117, y = 159, w = 156, h = 131 },
@@ -154,6 +154,10 @@ function Hand.new(side)
             h = baseRect.h,
         },
     }, Hand)
+end
+
+function Hand.setDebugDrawHitRect(enabled)
+    DEBUG_DRAW_HIT_RECT = enabled == true
 end
 
 local function getPunchLevelFromSpeed(speed)

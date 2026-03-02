@@ -9,6 +9,10 @@ function SandbagTarget.new(slideManager, sandbagActor, debugDraw)
     }, SandbagTarget)
 end
 
+function SandbagTarget:setDebugDraw(enabled)
+    self.debugDraw = enabled == true
+end
+
 function SandbagTarget:getWorldRect()
     local sandbagState = self.slideManager:getObjectState("sandbag")
     if not sandbagState or not sandbagState.visible or not self.sandbagActor.hitbox then

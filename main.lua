@@ -1,4 +1,5 @@
 local HandManager = require("modules.hand_manager")
+local Hand = require("modules.hand")
 local BattleFeedback = require("modules.battle_feedback")
 local PauseMenu = require("modules.pause_menu")
 local StartScreen = require("modules.start_screen")
@@ -12,7 +13,7 @@ local NewOpponentSandbag = require("modules.scenes.new_opponent_sandbag")
 local font = res.fontFile("Shilla_Culture.ttf", "Shilla_Culture(M)", 24)
 local countdownFont = res.fontFile("Shilla_Culture.ttf", "Shilla_Culture(M)", 88)
 local logoImage = res.image("logo.png")
-local DEBUG_DRAW_HITBOXES = true
+local DEBUG_DRAW_HITBOXES = false
 local getStageSetup = NewOpponentSandbag.getStageSetup or function()
     return nil
 end
@@ -94,6 +95,40 @@ local phaseActionRunner = PhaseActionRunner.new(slideManager, actors, function()
     return w, h
 end)
 local sandbagTarget = SandbagTarget.new(slideManager, actors.sandbag, DEBUG_DRAW_HITBOXES)
+
+local function toBool(value)
+    if type(value) == "boolean" then
+        return value
+    end
+    if type(value) == "number" then
+        return value ~= 0
+    end
+    if type(value) == "string" then
+        local normalized = string.lower(value)
+        return normalized == "1" or normalized == "true" or normalized == "yes" or normalized == "on"
+    end
+    return false
+end
+
+local function readDebugHitboxFlagFromConfig()
+    local cfg = is.config and is.config() or nil
+    if type(cfg) ~= "table" then
+        return false
+    end
+
+    if toBool(cfg.debug_hitbox) or toBool(cfg.debugHitbox) then
+        return true
+    end
+
+    local debugTable = cfg.debug or cfg.Debug
+    if type(debugTable) == "table" then
+        if toBool(debugTable.hitbox) or toBool(debugTable.hitboxes) then
+            return true
+        end
+    end
+
+    return false
+end
 
 local function configureStageRecordCallbacks()
     local phaseConfig = handManager:getPhaseConfig()
@@ -233,6 +268,9 @@ end
 function Init()
     w, h = is.size()
     StageProgression.load()
+    local debugHitbox = readDebugHitboxFlagFromConfig()
+    Hand.setDebugDrawHitRect(debugHitbox)
+    sandbagTarget:setDebugDraw(debugHitbox)
     handManager:setPlayArea(w, h)
     pauseMenu:updateLayout(w, h)
     startScreen:updateLayout(w, h)
