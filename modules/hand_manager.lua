@@ -1,6 +1,7 @@
 local Hand = require("modules.hand")
 local MessageManager = require("modules.message_manager")
 local PHASES = require("modules.phases")
+local L = require("modules.localization")
 
 local HandManager = {}
 HandManager.__index = HandManager
@@ -12,6 +13,23 @@ local HAND_SIDE_MARGIN = 20
 local AUTO_ADVANCE_DELAY_MS = 1000
 local HAND_ENTRY_DURATION_MS = 500
 local HAND_ENTRY_START_OFFSET = HAND_SPRITE_SIZE + 40
+local PERSISTENT_HAND_REGISTRY = {
+    leftOwnerId = nil,
+    rightOwnerId = nil,
+}
+
+local function determineInitialPhase(leftOwnerId, rightOwnerId)
+    if leftOwnerId and rightOwnerId then
+        return "sandbag_intro"
+    end
+    if leftOwnerId then
+        return "register_right"
+    end
+    if rightOwnerId then
+        return "register_left"
+    end
+    return "intro"
+end
 
 function HandManager.new()
     local leftHand = Hand.new("left")
@@ -21,15 +39,15 @@ function HandManager.new()
         leftHand = leftHand,
         rightHand = rightHand,
         hands = { leftHand, rightHand },
-        leftOwnerId = nil,
-        rightOwnerId = nil,
+        leftOwnerId = PERSISTENT_HAND_REGISTRY.leftOwnerId,
+        rightOwnerId = PERSISTENT_HAND_REGISTRY.rightOwnerId,
         phase = "intro",
         dialogueIndex = 1,
         dialogueCompleteHoldMs = 0,
-        defaultSpeaker = "코치",
+        defaultSpeaker = L.t("speaker.coach"),
         phaseEventHandler = nil,
         messageManager = MessageManager.new({
-            speaker = "코치",
+            speaker = L.t("speaker.coach"),
             msPerChar = 40,
             errorDurationMs = 1000,
         }),
@@ -46,7 +64,7 @@ function HandManager.new()
         },
     }, HandManager)
 
-    manager:setPhase("intro")
+    manager:setPhase(determineInitialPhase(manager.leftOwnerId, manager.rightOwnerId))
     return manager
 end
 
@@ -286,19 +304,25 @@ function HandManager:onMouseDown(button, id)
     end
 
     if phaseConfig.target == "left" and self.leftOwnerId == nil then
+        if id == self.rightOwnerId then
+            self:setError(L.t("error.right_is_right"))
+            return
+        end
+
         if button ~= phaseConfig.requiredButton then
             self:setError(phaseConfig.invalidMessage)
             return
         end
 
         self.leftOwnerId = id
+        PERSISTENT_HAND_REGISTRY.leftOwnerId = id
         if phaseConfig.nextPhase then
             self:setPhase(phaseConfig.nextPhase)
         end
         print("Left hand registered: " .. id)
     elseif phaseConfig.target == "right" and self.rightOwnerId == nil then
         if id == self.leftOwnerId then
-            self:setError("그건 이미 왼손으로 등록된 마우스입니다!")
+            self:setError(L.t("error.left_is_left"))
             return
         end
 
@@ -308,6 +332,7 @@ function HandManager:onMouseDown(button, id)
         end
 
         self.rightOwnerId = id
+        PERSISTENT_HAND_REGISTRY.rightOwnerId = id
         if phaseConfig.nextPhase then
             self:setPhase(phaseConfig.nextPhase)
         end
@@ -367,7 +392,7 @@ function HandManager:tryConsumeBattlePunchHit(targetRect)
                     side = hand.side,
                     level = hand:getPunchLevel(),
                     techniqueId = technique and technique.id or "straight",
-                    techniqueName = technique and technique.name or "스트레이트",
+                    techniqueName = technique and technique.name or L.t("technique.straight"),
                     dirX = technique and technique.dirX or 1,
                     dirY = technique and technique.dirY or 0,
                 }

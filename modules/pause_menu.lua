@@ -1,5 +1,6 @@
 local PauseMenu = {}
 PauseMenu.__index = PauseMenu
+local L = require("modules.localization")
 
 function PauseMenu.new(font)
     return setmetatable({
@@ -113,7 +114,7 @@ function PauseMenu:draw(width, height)
     g.rect(panelX, panelY, self.panelW, self.panelH, true)
 
     g.color(1, 1, 1)
-    g.text(self.font, "일시 정지", panelX + 124, panelY + 24)
+    g.text(self.font, L.t("ui.pause.title"), panelX + 124, panelY + 24)
 
     if resumeHover then
         g.color(0.36, 0.36, 0.36)
@@ -137,9 +138,9 @@ function PauseMenu:draw(width, height)
     g.rect(self.quitRect.x, self.quitRect.y, self.quitRect.w, self.quitRect.h, true)
 
     g.color(1, 1, 1)
-    g.text(self.font, "계속하기", self.resumeRect.x + 84, self.resumeRect.y + 13)
-    g.text(self.font, "메인 메뉴", self.mainMenuRect.x + 84, self.mainMenuRect.y + 13)
-    g.text(self.font, "게임 종료", self.quitRect.x + 84, self.quitRect.y + 13)
+    g.text(self.font, L.t("ui.pause.resume"), self.resumeRect.x + 84, self.resumeRect.y + 13)
+    g.text(self.font, L.t("ui.pause.main_menu"), self.mainMenuRect.x + 84, self.mainMenuRect.y + 13)
+    g.text(self.font, L.t("ui.pause.quit"), self.quitRect.x + 84, self.quitRect.y + 13)
 end
 
 return PauseMenu

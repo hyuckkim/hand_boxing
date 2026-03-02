@@ -1,4 +1,5 @@
 local ParticleSystem = require("modules.particle_system")
+local L = require("modules.localization")
 
 local BattleFeedback = {}
 BattleFeedback.__index = BattleFeedback
@@ -116,7 +117,10 @@ function BattleFeedback:addFloatingHitText(text, level)
 end
 
 function BattleFeedback:getTechniqueDisplayName(hit)
-    local baseName = tostring(hit.techniqueName or "스트레이트")
+    local baseName = tostring(hit.techniqueName or L.t("technique.straight"))
+    if hit.techniqueId then
+        baseName = L.t("technique." .. hit.techniqueId)
+    end
     local side = hit.side
     local now = self.elapsedMs
 
@@ -125,12 +129,12 @@ function BattleFeedback:getTechniqueDisplayName(hit)
         if delta <= DUAL_HIT_COMBO_WINDOW_MS then
             local peakLevel = math.max(hit.level or 1, self.lastHitLevel or 1)
             if peakLevel >= 3 then
-                return "더블 임팩트"
+                return L.t("combo.double_impact")
             end
             if peakLevel >= 2 then
-                return "원투 러시"
+                return L.t("combo.one_two_rush")
             end
-            return "원투 콤보"
+            return L.t("combo.one_two")
         end
     end
 
@@ -213,7 +217,11 @@ end
 function BattleFeedback:onHit(targetRect, hit)
     self.hitCount = self.hitCount + 1
     local displayName = self:getTechniqueDisplayName(hit)
-    self:addFloatingHitText("HIT! " .. displayName .. " L" .. tostring(hit.level) .. " (" .. hit.side .. ")", hit.level)
+    self:addFloatingHitText(L.t("ui.battle.hit_text", {
+        name = displayName,
+        level = tostring(hit.level),
+        side = tostring(hit.side),
+    }), hit.level)
 
     self.lastHitSide = hit.side
     self.lastHitLevel = hit.level or 1
@@ -252,7 +260,7 @@ end
 
 function BattleFeedback:drawHud(font, width, height)
     g.color(1, 1, 1)
-    g.text(font, "Hits: " .. tostring(self.hitCount), 20, height - 44)
+    g.text(font, L.t("ui.battle.hits", { count = tostring(self.hitCount) }), 20, height - 44)
 
     local baseX = math.floor(width * 0.43)
     for _, item in ipairs(self.floatingTexts) do

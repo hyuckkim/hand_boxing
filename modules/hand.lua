@@ -1,5 +1,6 @@
 local Hand = {}
 Hand.__index = Hand
+local L = require("modules.localization")
 
 local HAND_SPRITE_WIDTH = 400
 local PUNCH_BASE_SPEED_THRESHOLD = 30
@@ -46,7 +47,7 @@ local function classifyTechnique(dx, dy)
     if absX < 2 and absY < 2 then
         return {
             id = "straight",
-            name = "스트레이트",
+            name = L.t("technique.straight"),
             dirX = 1,
             dirY = 0,
         }
@@ -56,14 +57,14 @@ local function classifyTechnique(dx, dy)
         if dx >= 0 then
             return {
                 id = "straight",
-                name = "스트레이트",
+                name = L.t("technique.straight"),
                 dirX = 1,
                 dirY = 0,
             }
         end
         return {
             id = "backfist",
-            name = "백피스트",
+            name = L.t("technique.backfist"),
             dirX = -1,
             dirY = 0,
         }
@@ -73,14 +74,14 @@ local function classifyTechnique(dx, dy)
         if dy <= 0 then
             return {
                 id = "uppercut",
-                name = "어퍼컷",
+                name = L.t("technique.uppercut"),
                 dirX = 0,
                 dirY = -1,
             }
         end
         return {
             id = "hammer",
-            name = "해머",
+            name = L.t("technique.hammer"),
             dirX = 0,
             dirY = 1,
         }
@@ -89,7 +90,7 @@ local function classifyTechnique(dx, dy)
     if dx >= 0 and dy <= 0 then
         return {
             id = "rising_hook",
-            name = "라이징 훅",
+            name = L.t("technique.rising_hook"),
             dirX = 0.7,
             dirY = -0.7,
         }
@@ -98,7 +99,7 @@ local function classifyTechnique(dx, dy)
     if dx >= 0 and dy > 0 then
         return {
             id = "down_hook",
-            name = "다운 훅",
+            name = L.t("technique.down_hook"),
             dirX = 0.7,
             dirY = 0.7,
         }
@@ -107,7 +108,7 @@ local function classifyTechnique(dx, dy)
     if dx < 0 and dy <= 0 then
         return {
             id = "pull_upper",
-            name = "풀 어퍼",
+            name = L.t("technique.pull_upper"),
             dirX = -0.7,
             dirY = -0.7,
         }
@@ -115,7 +116,7 @@ local function classifyTechnique(dx, dy)
 
     return {
         id = "pull_smash",
-        name = "풀 스매시",
+        name = L.t("technique.pull_smash"),
         dirX = -0.7,
         dirY = 0.7,
     }
@@ -142,7 +143,7 @@ function Hand.new(side)
         trajectoryLifeMs = 0,
         lastTechnique = {
             id = "straight",
-            name = "스트레이트",
+            name = L.t("technique.straight"),
             dirX = 1,
             dirY = 0,
         },

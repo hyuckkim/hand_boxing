@@ -1,4 +1,5 @@
 local sandbagScene = require("modules.scenes.new_opponent_sandbag")
+local L = require("modules.localization")
 
 local phases = {
     intro = {
@@ -16,9 +17,9 @@ local phases = {
             },
         },
         dialogues = {
-            "링 위에 올라가기 전에 마음가짐부터 다시 잡는다.",
-            "...",
-            "오늘 훈련, 끝까지 버틸 자신 있나? 대답 대신 양손 엄지로 표시해라.",
+            L.t("phase.intro.line1"),
+            L.t("phase.intro.line2"),
+            L.t("phase.intro.line3"),
         },
         nextPhase = "register_left",
     },
@@ -26,9 +27,9 @@ local phases = {
         mode = "register",
         target = "left",
         requiredButton = 1,
-        invalidMessage = "그건 엄지가 아니라 새끼손까락이다.",
+        invalidMessage = L.t("phase.register_left.invalid"),
         dialogues = {
-            "우선 왼손. 엄지를 올려 자신감을 보여봐.",
+            L.t("phase.register_left.line1"),
         },
         nextPhase = "register_right",
     },
@@ -36,16 +37,16 @@ local phases = {
         mode = "register",
         target = "right",
         requiredButton = 0,
-        invalidMessage = "그건 엄지가 아니라 새끼손까락이다.",
+        invalidMessage = L.t("phase.register_right.invalid"),
         dialogues = {
-            "그렇지. 이제 오른손도. 엄지를 확실하게 세워라.",
+            L.t("phase.register_right.line1"),
         },
         nextPhase = "sandbag_intro",
     },
     play = {
         mode = "dialog",
         dialogues = {
-            "좋아. 준비 자세를 유지해라.",
+            L.t("phase.play.line1"),
         },
     },
 }

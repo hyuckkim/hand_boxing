@@ -1,5 +1,6 @@
 local StartScreen = {}
 StartScreen.__index = StartScreen
+local L = require("modules.localization")
 
 function StartScreen.new(font, logoImage, options)
     options = options or {}
@@ -70,7 +71,7 @@ function StartScreen:draw(width, height)
         g.image(self.logoImage, logoX, logoY, logoW, logoH)
     else
         g.color(1, 1, 1)
-        g.text(self.font, "HAND BOXING", math.floor(width * 0.33), math.floor(height * 0.22))
+        g.text(self.font, L.t("ui.start.title"), math.floor(width * 0.33), math.floor(height * 0.22))
     end
 
     local mx, my = is.mouse()
@@ -84,11 +85,11 @@ function StartScreen:draw(width, height)
     g.rect(self.buttonRect.x, self.buttonRect.y, self.buttonRect.w, self.buttonRect.h, true)
 
     g.color(1, 1, 1)
-    g.text(self.font, "시작", self.buttonRect.x + 100, self.buttonRect.y + 15)
+    g.text(self.font, L.t("ui.start.button"), self.buttonRect.x + 100, self.buttonRect.y + 15)
 
     if self.mouseConfirmCount >= 1 then
         g.color(0.72, 0.92, 0.72)
-        g.text(self.font, "마우스 1 확인됨", math.floor(width * 0.18), math.floor(height * 0.82))
+        g.text(self.font, L.t("ui.start.mouse1_confirmed"), math.floor(width * 0.18), math.floor(height * 0.82))
     else
         g.color(0.5, 0.5, 0.5)
         g.text(self.font, "", math.floor(width * 0.18), math.floor(height * 0.82))
@@ -96,13 +97,13 @@ function StartScreen:draw(width, height)
 
     if self.mouseConfirmCount >= 2 then
         g.color(0.72, 0.92, 0.72)
-        g.text(self.font, "마우스 2 확인됨", math.floor(width * 0.18), math.floor(height * 0.88))
+        g.text(self.font, L.t("ui.start.mouse2_confirmed"), math.floor(width * 0.18), math.floor(height * 0.88))
     else
         g.color(0.5, 0.5, 0.5)
         g.text(self.font, "", math.floor(width * 0.18), math.floor(height * 0.88))
     end
     g.color("#cccccc")
-    g.text(self.font, "마우스 2개가 필요합니다", 20, height - 40)
+    g.text(self.font, L.t("ui.start.need_two_mice"), 20, height - 40)
 end
 
 return StartScreen

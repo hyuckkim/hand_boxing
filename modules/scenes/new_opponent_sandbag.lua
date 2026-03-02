@@ -1,10 +1,12 @@
+local L = require("modules.localization")
+
 local scene = {
     sandbag_intro = {
         mode = "dialog",
         dialogues = {
-            "새 상대를 소개하지.",
-            "새 상대: 샌드백.",
-            "움직이지 않지만, 네 주먹의 정확도를 전부 드러내 줄 거다.",
+            L.t("scene.sandbag_intro.line1"),
+            L.t("scene.sandbag_intro.line2"),
+            L.t("scene.sandbag_intro.line3"),
         },
         dialogueActions = {
             [2] = {
@@ -52,7 +54,7 @@ local scene = {
             },
         },
         dialogues = {
-            "좋다. 샌드백을 중앙에 고정했다. 이제 시작한다.",
+            L.t("scene.sandbag_settle.line1"),
         },
         nextPhase = "countdown",
     },
@@ -61,17 +63,17 @@ local scene = {
         speaker = "",
         instantDialogue = true,
         dialogues = {
-            "3...",
-            "2...",
-            "1...",
-            "Start!"
+            L.t("scene.countdown.n3"),
+            L.t("scene.countdown.n2"),
+            L.t("scene.countdown.n1"),
+            L.t("scene.countdown.start")
         },
         nextPhase = "battle"
     },
     battle = {
         mode = "battle",
         dialogues = {
-            "실전 시작! 샌드백을 쳐라!"
+            L.t("scene.battle.line1")
         }
     }
 }
