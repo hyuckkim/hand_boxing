@@ -1,4 +1,4 @@
-local sandbagScene = dofile("modules/scenes/new_opponent_sandbag.lua")
+local sandbagScene = require("modules.scenes.new_opponent_sandbag")
 
 local phases = {
     intro = {

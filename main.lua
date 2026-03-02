@@ -1,19 +1,15 @@
-local HandManager = dofile("modules/hand_manager.lua")
-local PauseMenu = dofile("modules/pause_menu.lua")
-local StartScreen = dofile("modules/start_screen.lua")
-local SlideManager = dofile("modules/slide_manager.lua")
-local ParticleSystem = dofile("modules/particle_system.lua")
+local HandManager = require("modules.hand_manager")
+local BattleFeedback = require("modules.battle_feedback")
+local PauseMenu = require("modules.pause_menu")
+local StartScreen = require("modules.start_screen")
+local SlideManager = require("modules.slide_manager")
+local PhaseActionRunner = require("modules.phase_action_runner")
+local SandbagTarget = require("modules.sandbag_target")
 
 local font = res.fontFile("Shilla_Culture.ttf", "Shilla_Culture(M)", 24)
 local countdownFont = res.fontFile("Shilla_Culture.ttf", "Shilla_Culture(M)", 88)
 local logoImage = res.image("logo.png")
 local DEBUG_DRAW_HITBOXES = true
-local DUST_DISPERSAL_MULTIPLIER = 5
-local SCREEN_SHAKE_DURATION_MS_BASE = 90
-local SCREEN_SHAKE_DURATION_MS_STEP = 25
-local SCREEN_SHAKE_INTENSITY_BASE = 3
-local SCREEN_SHAKE_INTENSITY_STEP = 2
-local SCREEN_SHAKE_MAX_OFFSET = 16
 local actors = {
     coach = {
         img = res.image("coach.png"),
@@ -38,20 +34,9 @@ local w, h
 local scene = "start"
 local START_FADE_DURATION_MS = 1000
 local startFadeTimerMs = 0
-local battleHitCount = 0
-local battleHitText = ""
-local battleHitTextTimerMs = 0
-local screenShakeTimerMs = 0
-local screenShakeIntensity = 0
-local screenShakeX = 0
-local screenShakeY = 0
 local handManager = HandManager.new()
 local slideManager = SlideManager.new()
-local particleSystem = ParticleSystem.new({
-    maxParticles = 800,
-    gravity = 620,
-    defaultShape = "circle",
-})
+local battleFeedback = BattleFeedback.new()
 local pauseMenu = PauseMenu.new(font)
 local startScreen = StartScreen.new(font, logoImage, {
     buttonX = 70,
@@ -65,299 +50,10 @@ local images = {
     right = res.image("3.png"),
     both = res.image("4.png"),
 }
-
-local function safeAtan2(y, x)
-    if x == 0 then
-        if y > 0 then
-            return math.pi * 0.5
-        elseif y < 0 then
-            return -math.pi * 0.5
-        end
-        return 0
-    end
-
-    local angle = math.atan(y / x)
-    if x < 0 then
-        if y >= 0 then
-            angle = angle + math.pi
-        else
-            angle = angle - math.pi
-        end
-    end
-    return angle
-end
-
-local function drawDebugHitboxes()
-    if not DEBUG_DRAW_HITBOXES then
-        return
-    end
-
-    local sandbagState = slideManager:getObjectState("sandbag")
-    if sandbagState and sandbagState.visible and actors.sandbag.hitbox then
-        local hb = actors.sandbag.hitbox
-        g.color(0xff3333)
-        g.rect(sandbagState.x + hb.x, sandbagState.y + hb.y, hb.w, hb.h, false)
-    end
-end
-
-local function getSandbagHitboxWorldRect()
-    local sandbagState = slideManager:getObjectState("sandbag")
-    if not sandbagState or not sandbagState.visible or not actors.sandbag.hitbox then
-        return nil
-    end
-
-    local hb = actors.sandbag.hitbox
-    return {
-        x = sandbagState.x + hb.x,
-        y = sandbagState.y + hb.y,
-        w = hb.w,
-        h = hb.h,
-    }
-end
-
-local function spawnSandbagDust(targetRect, hit)
-    if not targetRect then
-        return
-    end
-
-    local power = 1
-    if hit and hit.level then
-        power = math.max(1, math.min(3, hit.level))
-    end
-
-    local sideBias = 0
-    if hit and hit.side == "left" then
-        sideBias = -18
-    elseif hit and hit.side == "right" then
-        sideBias = 18
-    end
-
-    local count = 9 + power * 4
-    local speedScale = DUST_DISPERSAL_MULTIPLIER
-    local angleDeg = -90
-    if hit and hit.dirX and hit.dirY then
-        angleDeg = math.deg(safeAtan2(hit.dirY, hit.dirX))
-    end
-
-    particleSystem:emitBurst({
-        x = targetRect.x + targetRect.w * 0.5 + sideBias,
-        y = targetRect.y + targetRect.h * 0.45,
-        count = count,
-        angleDeg = angleDeg,
-        spreadDeg = 140,
-        minSpeed = (90 + power * 24) * speedScale,
-        maxSpeed = (190 + power * 35) * speedScale,
-        minLifeMs = 500,
-        maxLifeMs = 1100,
-        minSize = 8,
-        maxSize = 20 + power * 2,
-        endSizeScale = 2.2,
-        drag = 1.7,
-        startAlpha = 0.72,
-        endAlpha = 0,
-        color = { r = 0.74, g = 0.70, b = 0.63 },
-        colorJitter = 0.09,
-    })
-end
-
-local function addScreenShake(level)
-    local power = math.max(1, math.min(3, level or 1))
-    local duration = SCREEN_SHAKE_DURATION_MS_BASE + (power - 1) * SCREEN_SHAKE_DURATION_MS_STEP
-    local intensity = SCREEN_SHAKE_INTENSITY_BASE + (power - 1) * SCREEN_SHAKE_INTENSITY_STEP
-
-    screenShakeTimerMs = math.max(screenShakeTimerMs, duration)
-    screenShakeIntensity = math.min(SCREEN_SHAKE_MAX_OFFSET, screenShakeIntensity + intensity)
-end
-
-local function updateScreenShake(dtMs)
-    if screenShakeTimerMs <= 0 then
-        screenShakeTimerMs = 0
-        screenShakeIntensity = 0
-        screenShakeX = 0
-        screenShakeY = 0
-        return
-    end
-
-    screenShakeTimerMs = math.max(0, screenShakeTimerMs - dtMs)
-    local decay = math.max(0, 1 - (dtMs / 120))
-    screenShakeIntensity = screenShakeIntensity * decay
-
-    if screenShakeTimerMs > 0 and screenShakeIntensity > 0.1 then
-        screenShakeX = (math.random() * 2 - 1) * screenShakeIntensity
-        screenShakeY = (math.random() * 2 - 1) * screenShakeIntensity * 0.8
-    else
-        screenShakeX = 0
-        screenShakeY = 0
-    end
-end
-
-local function ensureActorObject(name)
-    local actor = actors[name]
-    if not actor then
-        return nil, nil
-    end
-
-    local objectState = slideManager:getObjectState(name)
-    if not objectState then
-        local defaultX = math.floor((w - actor.w) / 2)
-        local defaultY = math.floor((h - actor.h) / 2)
-        slideManager:registerOrUpdate(name, {
-            imageId = actor.img,
-            width = actor.w,
-            height = actor.h,
-            x = defaultX,
-            y = defaultY,
-            visible = false,
-        })
-        objectState = slideManager:getObjectState(name)
-    else
-        slideManager:registerOrUpdate(name, {
-            imageId = actor.img,
-            width = actor.w,
-            height = actor.h,
-        })
-    end
-
-    return actor, objectState
-end
-
-local function resolveAxis(spec, axis, actor, objectState)
-    if not spec then
-        if axis == "x" then
-            return objectState and objectState.x or 0
-        end
-        return objectState and objectState.y or 0
-    end
-
-    local directValue = axis == "x" and spec.x or spec.y
-    if directValue ~= nil then
-        return directValue
-    end
-
-    local anchor = axis == "x" and spec.xAnchor or spec.yAnchor
-    local offset = axis == "x" and (spec.xOffset or 0) or (spec.yOffset or 0)
-    local base = 0
-
-    if axis == "x" then
-        if anchor == "left" then
-            base = 0
-        elseif anchor == "center" then
-            base = math.floor((w - actor.w) / 2)
-        elseif anchor == "right" then
-            base = w - actor.w
-        elseif anchor == "leftOutside" then
-            base = -actor.w
-        elseif anchor == "rightOutside" then
-            base = w
-        elseif anchor == "current" and objectState then
-            base = objectState.x
-        elseif objectState then
-            base = objectState.x
-        end
-    else
-        if anchor == "top" then
-            base = 0
-        elseif anchor == "center" then
-            base = math.floor((h - actor.h) / 2)
-        elseif anchor == "bottom" then
-            base = h - actor.h
-        elseif anchor == "topOutside" then
-            base = -actor.h
-        elseif anchor == "bottomOutside" then
-            base = h
-        elseif anchor == "current" and objectState then
-            base = objectState.y
-        elseif objectState then
-            base = objectState.y
-        end
-    end
-
-    return base + offset
-end
-
-local function executeSlideAction(action)
-    if not action or action.type ~= "slide" then
-        return
-    end
-
-    local actor, objectState = ensureActorObject(action.object)
-    if not actor then
-        return
-    end
-
-    local toX = resolveAxis(action.to, "x", actor, objectState)
-    local toY = resolveAxis(action.to, "y", actor, objectState)
-    local durationMs = action.durationMs or actor.enterDurationMs or 500
-    local easing = action.easing or "linear"
-
-    if action.mode == "enter" then
-        local fromX = resolveAxis(action.from, "x", actor, objectState)
-        local fromY = resolveAxis(action.from, "y", actor, objectState)
-        slideManager:startEnter(action.object, {
-            startX = fromX,
-            startY = fromY,
-            targetX = toX,
-            targetY = toY,
-            durationMs = durationMs,
-            easing = easing,
-            keepVisible = (action.keepVisible ~= false),
-        })
-        return
-    end
-
-    if action.mode == "move" or action.mode == "exit" then
-        if action.from then
-            local fromX = resolveAxis(action.from, "x", actor, objectState)
-            local fromY = resolveAxis(action.from, "y", actor, objectState)
-            slideManager:registerOrUpdate(action.object, {
-                x = fromX,
-                y = fromY,
-                visible = true,
-            })
-        end
-
-        slideManager:startExit(action.object, {
-            targetX = toX,
-            targetY = toY,
-            durationMs = durationMs,
-            easing = easing,
-            hideOnComplete = (action.mode == "exit") and (action.hideOnComplete ~= false) or false,
-        })
-    end
-end
-
-local function runActions(actions)
-    if not actions then
-        return
-    end
-
-    for _, action in ipairs(actions) do
-        executeSlideAction(action)
-    end
-end
-
-local function runPhaseEnterActions(phaseConfig)
-    runActions(phaseConfig and phaseConfig.enterActions)
-end
-
-local function runDialogueActions(phaseConfig, dialogueIndex)
-    if not phaseConfig or not phaseConfig.dialogueActions then
-        return
-    end
-
-    local actions = phaseConfig.dialogueActions[dialogueIndex]
-    runActions(actions)
-end
-
-local function bindHandManagerPhaseEvents(manager)
-    manager:setPhaseEventHandler(function(eventType, phaseName, phaseConfig, dialogueIndex)
-        if eventType == "phase_enter" then
-            runPhaseEnterActions(phaseConfig)
-        elseif eventType == "dialogue_changed" then
-            runDialogueActions(phaseConfig, dialogueIndex)
-        end
-    end)
-end
+local phaseActionRunner = PhaseActionRunner.new(slideManager, actors, function()
+    return w, h
+end)
+local sandbagTarget = SandbagTarget.new(slideManager, actors.sandbag, DEBUG_DRAW_HITBOXES)
 
 local function enterStartScene()
     scene = "start"
@@ -376,16 +72,9 @@ end
 
 local function enterGameScene()
     scene = "game"
-    battleHitCount = 0
-    battleHitText = ""
-    battleHitTextTimerMs = 0
-    screenShakeTimerMs = 0
-    screenShakeIntensity = 0
-    screenShakeX = 0
-    screenShakeY = 0
-    particleSystem:clear()
+    battleFeedback:reset()
     handManager = HandManager.new()
-    bindHandManagerPhaseEvents(handManager)
+    phaseActionRunner:bindHandManagerPhaseEvents(handManager)
     handManager:setPlayArea(w, h)
     handManager:beginHandEntryAnimation()
     handManager:emitPhaseEnter()
@@ -418,27 +107,15 @@ function Update(dtMs)
     end
 
     slideManager:update(dtMs)
-    particleSystem:update(dtMs)
+    battleFeedback:update(dtMs)
 
     handManager:update(dtMs)
-    updateScreenShake(dtMs)
-
-    if battleHitTextTimerMs > 0 then
-        battleHitTextTimerMs = math.max(0, battleHitTextTimerMs - dtMs)
-        if battleHitTextTimerMs == 0 then
-            battleHitText = ""
-        end
-    end
 
     if handManager:getCurrentMode() == "battle" then
-        local targetRect = getSandbagHitboxWorldRect()
+        local targetRect = sandbagTarget:getWorldRect()
         local hit = handManager:tryConsumeBattlePunchHit(targetRect)
         if hit then
-            battleHitCount = battleHitCount + 1
-            battleHitText = "HIT! " .. tostring(hit.techniqueName or "스트레이트") .. " L" .. tostring(hit.level) .. " (" .. hit.side .. ")"
-            battleHitTextTimerMs = 400
-            spawnSandbagDust(targetRect, hit)
-            addScreenShake(hit.level)
+            battleFeedback:onHit(targetRect, hit)
         end
     end
 end
@@ -463,24 +140,17 @@ function Draw()
     g.color(0, 0, 0)
     g.rect(0, 0, w, h)
 
-    g.push()
-    g.translate(screenShakeX, screenShakeY)
-
-    particleSystem:draw()
+    battleFeedback:beginWorldTransform()
+    battleFeedback:drawWorld()
     slideManager:draw()
-    drawDebugHitboxes()
+    sandbagTarget:drawDebugHitbox()
     handManager:draw(font, images, countdownFont)
 
     if handManager:getCurrentMode() == "battle" then
-        g.color(1, 1, 1)
-        g.text(font, "Hits: " .. tostring(battleHitCount), 20, h - 44)
-        if battleHitText ~= "" then
-            g.color(1, 0.85, 0.4)
-            g.text(font, battleHitText, math.floor(w * 0.43), math.floor(h * 0.16))
-        end
+        battleFeedback:drawHud(font, w, h)
     end
 
-    g.pop()
+    battleFeedback:endWorldTransform()
 
     if pauseMenu:isPaused() then
         pauseMenu:draw(w, h)

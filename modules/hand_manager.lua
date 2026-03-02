@@ -1,6 +1,6 @@
-local Hand = dofile("modules/hand.lua")
-local MessageManager = dofile("modules/message_manager.lua")
-local PHASES = dofile("modules/phases.lua")
+local Hand = require("modules.hand")
+local MessageManager = require("modules.message_manager")
+local PHASES = require("modules.phases")
 
 local HandManager = {}
 HandManager.__index = HandManager
