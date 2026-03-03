@@ -156,6 +156,7 @@ function StartScreen:draw(width, height)
     drawStageRecord(self.font, self.stage2Rect, self.stageRecords[2])
     drawStageRecord(self.font, self.stage3Rect, self.stageRecords[3])
 
+    g.image(res.image("coach.png"), width - 200, height - 350)
     g.color("#cccccc")
 end
 
